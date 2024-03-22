@@ -1,0 +1,7 @@
+id,user,permission,type
+1,user1,user1,all
+2,user2,user2,all
+3,gp1,user1,all
+4,gp1,user2,all
+5,user3,user3,all
+6,pharma1,user1,prescription
