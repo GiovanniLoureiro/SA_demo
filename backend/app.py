@@ -1,37 +1,50 @@
-import csv
-
 from flask import Flask, jsonify, request
+import sqlite3
 
 app = Flask(__name__)
+DATABASE = '/Users/gio/Desktop/SA_demo/backend/main.db'
 
+# Function to get database connection
+def get_db_connection():
+    conn = sqlite3.connect(DATABASE)
+    conn.row_factory = sqlite3.Row  # This allows us to access columns by name
+    return conn
 
-# Function to read get_files from a CSV file
-def read_files_from_csv():
-    files_list = []
-    with open('files.csv', mode='r') as csv_file:
-        csv_reader = csv.DictReader(csv_file)
-        for row in csv_reader:
-            files_list.append(row)
-    return files_list
-
-
-# Function to read permissions from a CSV file
-def read_permissions_from_csv():
-    permissions_list = []
-    with open('permissions.csv', mode='r') as csv_file:
-        csv_reader = csv.DictReader(csv_file)
-        for row in csv_reader:
-            permissions_list.append(row)
+# Function to get permissions
+def get_permissions():
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM permissions")
+    permissions = cur.fetchall()  # Fetch all results at once
+    permissions_list = [dict(row) for row in permissions]  # Convert to list of dicts
+    cur.close()
+    conn.close()
     return permissions_list
 
+# Function to get files
+def get_files():
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM files")
+    files = cur.fetchall()  # Fetch all results at once
+    files_list = [dict(row) for row in files]  # Convert to list of dicts
+    cur.close()
+    conn.close()
+    return files_list
 
-# Global variable to store permissions, initially loaded from CSV
-permissions_list = read_permissions_from_csv()
-print("perms:")
-print(permissions_list)
+# Example usage
+permissions_list = get_permissions()
+files_list = get_files()
 
-# Global variable to store get_files, initially loaded from CSV
-files_list = read_files_from_csv()
+print("Permissions:")
+for perm in permissions_list:
+    print(perm)
+
+print("Files:")
+for file in files_list:
+    print(file)
+
+# Login route remains the same
 
 # Counter for generating unique IDs for new files
 cid = 4
@@ -62,13 +75,9 @@ def login():
 
     return jsonify({"message": "Login successful"})
 
-
 @app.route("/get_files")
 def get_files():
     username = request.args.get('username')
-
-    # Read permissions from CSV (or use global variable if already loaded)
-    permissions_list = read_permissions_from_csv()
 
     # Find the permissions for the requesting user
     user_permissions = [perm for perm in permissions_list if perm["user"] == username]
@@ -79,20 +88,19 @@ def get_files():
         if perm["type"] == "all":
             accessible_files[perm["permission"]] = "all"
         elif perm["type"] == "prescription":
-            # Assuming a user could have 'all' and 'prescription' permissions separately
             if perm["permission"] not in accessible_files or accessible_files[perm["permission"]] != "all":
                 accessible_files[perm["permission"]] = "prescription"
+    print(f"files {accessible_files}")
 
     # Filter files based on the accessible types determined above
     filtered_files = [
         file for file in files_list
         if file["user"] in accessible_files and (
-                    accessible_files[file["user"]] == "all" or file["type"] == accessible_files[file["user"]])
+            accessible_files[file["user"]] == "all" or file["type"] == accessible_files[file["user"]])
     ]
-
+    print(f"filtered files {filtered_files}")
     return jsonify({"files": filtered_files})
 
-    return jsonify({"files": filtered_files})
 
 
 # Run the application if this script is executed directly
